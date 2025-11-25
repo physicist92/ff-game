@@ -9,8 +9,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/.well-known/farcaster.json", "destination": "/.well-known/farcaster.json" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "cleanUrls": true
+  ]
 }
