@@ -10,8 +10,26 @@ import {
   Wallet
 } from 'lucide-react';
 
-// --- GERÇEK SDK AKTİF ---
-import sdk from '@farcaster/frame-sdk';
+// --- CANLIYA (VERCEL/GITHUB) YÜKLERKEN YAPILACAKLAR ---
+// 1. Aşağıdaki 'import sdk ...' satırının başındaki '//' işaretlerini KALDIRIN:
+// import sdk from '@farcaster/frame-sdk';
+
+// 2. Aşağıdaki 'const sdk = ...' bloğunu tamamen SİLİN veya YORUM SATIRI YAPIN.
+
+// --- MOCK KÜTÜPHANELER (ÖNİZLEME İÇİN GEÇİCİ KOD) ---
+const sdk = {
+  context: Promise.resolve({ user: { fid: 19267, username: 'sedat' } }),
+  actions: {
+    ready: () => console.log("SDK Ready (Mock)"),
+    openUrl: (url) => window.open(url, '_blank'),
+    sendTransaction: async () => {
+      console.log("Transaction sent (Mock)");
+      await new Promise(r => setTimeout(r, 2000));
+      return { hash: "0x123456..." };
+    }
+  }
+};
+// --- MOCK BİTİŞ ---
 
 export default function App() {
   const [gameState, setGameState] = useState('start'); 
@@ -25,13 +43,16 @@ export default function App() {
   const canvasRef = useRef(null);
   const requestRef = useRef();
   
-  // OYUN FİZİĞİ
+  // --- BURAYI GÜNCELLE ---
+  const CONTRACT_ADDRESS = "0x89725B54965c706100A2B24f78AEc268ADC25D3B"; 
+  
+  // Oyun Fiziği
   const game = useRef({
     rotation: 0, baseSpeed: 0.02, speed: 0.02,
     pins: [], redZones: [], frameCount: 0, mode: 'normal'
   });
 
-  // MOCK DATA
+  // Mock Data
   const mockLeaderboard = [
     { name: '@dwr', score: 450, level: 22 },
     { name: '@vitalik', score: 320, level: 15 },
@@ -40,7 +61,6 @@ export default function App() {
     { name: '@linda', score: 45, level: 3 },
   ];
 
-  // LEVEL CONFIG
   const getLevelConfig = (lvl) => {
     let config = { speed: 0.02, count: 6, initialPins: [], redZones: [], mode: 'normal' };
     if (lvl <= 10) { config.speed = 0.02 + (lvl * 0.0015); config.count = 4 + Math.floor(lvl / 2); }
@@ -51,21 +71,16 @@ export default function App() {
     return config;
   };
 
-  // SDK INITIALIZATION (KRİTİK)
   useEffect(() => {
     const init = async () => {
       try { 
-        // Gerçek Farcaster'a "Yükleme bitti, ekranı aç" sinyali gönderir.
         await sdk.actions.ready(); 
-        console.log("Farcaster SDK Ready Signal Sent");
-      } catch(e) {
-        console.error("SDK Error:", e);
-      }
+        console.log("Farcaster SDK Ready");
+      } catch(e) { console.error("SDK Error:", e); }
     };
     init();
   }, []);
 
-  // OYUN DÖNGÜSÜ (Render)
   const animate = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -121,7 +136,6 @@ export default function App() {
     return () => cancelAnimationFrame(requestRef.current);
   }, [animate]);
 
-  // ATIŞ
   const handleShoot = () => {
     if (gameState !== 'playing') return;
     let pinAngle = (Math.PI / 2) - game.current.rotation;
@@ -142,7 +156,6 @@ export default function App() {
     }
   };
 
-  // OYUN YÖNETİMİ
   const initLevel = (lvl) => {
     const config = getLevelConfig(lvl);
     game.current.rotation = 0; game.current.frameCount = 0; game.current.speed = config.speed;
@@ -155,31 +168,36 @@ export default function App() {
   const nextLevel = () => { initLevel(level + 1); };
   const retryLevel = () => { initLevel(level); };
 
-  // MINT
+  // MINT İŞLEMİ (BURAYA DİKKAT)
+  // Önizleme modunda "viem" paketi olmadığı için basit bir simülasyon yapıyoruz.
+  // Canlıya alırken "import { parseEther } from 'viem';" ekleyip bu fonksiyonu güncellemelisiniz.
   const handleMintNFT = async () => {
     setIsMinting(true);
-    const MY_WALLET = "0x89725B54965c706100A2B24f78AEc268ADC25D3B"; 
     
     try {
-      // Base Chain ID: 8453
-      if (sdk.actions?.sendTransaction) {
-        const result = await sdk.actions.sendTransaction({
-          transaction: {
-            to: MY_WALLET,
-            value: "370000000000000", // 0.00037 ETH
-            chainId: 8453 // Base Mainnet
-          }
-        });
-        console.log("Tx Result:", result);
-        alert("Transaction sent! Waiting for confirmation...");
-        setHasMinted(true);
-      } else {
-        // HATA DURUMU
-        alert("Wallet not found! Please try opening this in Warpcast mobile app.");
+      if (!sdk.actions?.sendTransaction) {
+        alert("Cüzdan bulunamadı. Lütfen mobilde deneyin.");
+        setIsMinting(false);
+        return;
       }
+
+      // Gerçek ortamda viem ile encodeFunctionData kullanacağız.
+      // Burada mock transaction gönderiyoruz.
+      const result = await sdk.actions.sendTransaction({
+        transaction: {
+          to: CONTRACT_ADDRESS, 
+          value: "370000000000000", // 0.00037 ETH (Wei)
+          chainId: 8453 // Base Mainnet
+        }
+      });
+
+      console.log("Tx Hash:", result.hash);
+      alert("Tebrikler! NFT Mintlendi (Simülasyon).");
+      setHasMinted(true);
+
     } catch (error) {
-      console.error("Mint Error:", error);
-      alert("Transaction failed or rejected.");
+      console.error("Mint Hatası:", error);
+      alert("İşlem başarısız oldu veya iptal edildi.");
     } finally {
       setIsMinting(false);
     }
@@ -212,7 +230,7 @@ export default function App() {
         <canvas ref={canvasRef} width={400} height={600} className="max-w-full h-full object-contain" />
       </div>
 
-      {/* MODALS */}
+      {/* MODALLAR */}
       {gameState === 'start' && (
         <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-20 p-4 text-center">
             <h1 className="text-8xl font-black mb-2 tracking-tighter">ff</h1>
