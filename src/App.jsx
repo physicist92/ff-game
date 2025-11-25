@@ -10,11 +10,11 @@ import {
   Wallet
 } from 'lucide-react';
 
-// --- ÖNEMLİ: CANLIYA ALIRKEN BU KISMI DÜZENLEYİN ---
-// Aşağıdaki 'import' satırının başındaki yorumu (//) kaldırın:
+// --- ÖNEMLİ: CANLIYA ALIRKEN (VERCEL) BU KISMI DÜZENLEYİN ---
+// 1. Aşağıdaki satırın başındaki '//' işaretlerini kaldırın (Aktif edin):
 // import sdk from '@farcaster/frame-sdk';
 
-// Aşağıdaki 'const sdk = ...' bloğunu SİLİN veya YORUM SATIRI YAPIN:
+// 2. Aşağıdaki 'const sdk = ...' bloğunu SİLİN veya YORUM SATIRI YAPIN (Pasif edin):
 const sdk = {
   context: Promise.resolve({ user: { fid: 19267, username: 'sedat' } }),
   actions: {
@@ -27,7 +27,7 @@ const sdk = {
     }
   }
 };
-// -------------------------------------------------------
+// -------------------------------------------------------------
 
 export default function App() {
   const [gameState, setGameState] = useState('start'); 
@@ -37,7 +37,6 @@ export default function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [hasMinted, setHasMinted] = useState(false);
-  const [sdkReady, setSdkReady] = useState(false);
 
   const canvasRef = useRef(null);
   const requestRef = useRef();
@@ -72,8 +71,8 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       try { 
+        // Mock SDK kullanırken await gerekmez ama gerçek SDK asenkrondur
         await sdk.actions.ready(); 
-        setSdkReady(true);
         console.log("Farcaster SDK Ready");
       } catch(e) {
         console.error("SDK Error:", e);
@@ -179,7 +178,7 @@ export default function App() {
     
     try {
       // Base Chain ID: 8453
-      if (sdkReady && sdk.actions?.sendTransaction) {
+      if (sdk.actions?.sendTransaction) {
         const result = await sdk.actions.sendTransaction({
           transaction: {
             to: MY_WALLET,
@@ -203,10 +202,15 @@ export default function App() {
   };
 
   const handleShare = () => {
-    const myAppUrl = "https://fc-aa-game.vercel.app";
+    const myAppUrl = "https://ff-game.vercel.app";
     const text = `Played ff on Farcaster! Reached Level ${level}. Score: ${score}`;
     const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${myAppUrl}`;
-    sdk.actions?.openUrl(url) || window.open(url, '_blank');
+    
+    if (sdk.actions?.openUrl) {
+      sdk.actions.openUrl(url);
+    } else {
+      window.open(url, '_blank');
+    }
   };
 
   return (
@@ -224,6 +228,7 @@ export default function App() {
         <canvas ref={canvasRef} width={400} height={600} className="max-w-full h-full object-contain" />
       </div>
 
+      {/* MODALS */}
       {gameState === 'start' && (
         <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-20 p-4 text-center">
             <h1 className="text-8xl font-black mb-2 tracking-tighter">ff</h1>
