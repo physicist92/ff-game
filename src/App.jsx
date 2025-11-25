@@ -10,24 +10,8 @@ import {
   Wallet
 } from 'lucide-react';
 
-// --- ÖNEMLİ: CANLIYA ALIRKEN (VERCEL) BU KISMI DÜZENLEYİN ---
-// 1. Aşağıdaki satırın başındaki '//' işaretlerini kaldırın (Aktif edin):
-// import sdk from '@farcaster/frame-sdk';
-
-// 2. Aşağıdaki 'const sdk = ...' bloğunu SİLİN veya YORUM SATIRI YAPIN (Pasif edin):
-const sdk = {
-  context: Promise.resolve({ user: { fid: 19267, username: 'sedat' } }),
-  actions: {
-    ready: () => console.log("SDK Ready (Mock)"),
-    openUrl: (url) => window.open(url, '_blank'),
-    sendTransaction: async () => {
-      console.log("Transaction sent (Mock)");
-      await new Promise(r => setTimeout(r, 2000));
-      return { hash: "0x123456..." };
-    }
-  }
-};
-// -------------------------------------------------------------
+// --- GERÇEK SDK AKTİF ---
+import sdk from '@farcaster/frame-sdk';
 
 export default function App() {
   const [gameState, setGameState] = useState('start'); 
@@ -67,13 +51,13 @@ export default function App() {
     return config;
   };
 
-  // SDK INITIALIZATION
+  // SDK INITIALIZATION (KRİTİK)
   useEffect(() => {
     const init = async () => {
       try { 
-        // Mock SDK kullanırken await gerekmez ama gerçek SDK asenkrondur
+        // Gerçek Farcaster'a "Yükleme bitti, ekranı aç" sinyali gönderir.
         await sdk.actions.ready(); 
-        console.log("Farcaster SDK Ready");
+        console.log("Farcaster SDK Ready Signal Sent");
       } catch(e) {
         console.error("SDK Error:", e);
       }
