@@ -10,7 +10,7 @@ import {
   Wallet
 } from 'lucide-react';
 
-// --- ÖNEMLİ: CANLIYA (VERCEL/GITHUB) YÜKLERKEN BURAYI DÜZENLEYİN ---
+// --- DİKKAT: CANLIYA (VERCEL) YÜKLERKEN BURAYI DÜZENLEYİN ---
 
 // 1. ADIM: Aşağıdaki satırın başındaki '//' işaretlerini KALDIRIN (Aktif Edin):
 // import sdk from '@farcaster/frame-sdk';
@@ -18,14 +18,12 @@ import {
 // 2. ADIM: Aşağıdaki 'const sdk = ...' bloğunu tamamen SİLİN veya YORUM SATIRI YAPIN.
 // --- MOCK SDK (Sadece Önizleme İçin) ---
 const sdk = {
-  context: Promise.resolve({ user: { fid: 19267, username: 'sedat' } }),
   actions: {
     ready: () => console.log("SDK Ready (Mock)"),
     openUrl: (url) => window.open(url, '_blank'),
     sendTransaction: async () => {
-      console.log("Transaction sent (Mock)");
-      await new Promise(r => setTimeout(r, 2000));
-      return { hash: "0x123456..." };
+        console.log("Mock Transaction Sent");
+        return { hash: "0xMockHash..." };
     }
   }
 };
@@ -299,36 +297,6 @@ export default function App() {
     initLevel(level);
   };
 
-  // MINT (ETH GÖNDERME)
-  const handleMintNFT = async () => {
-    setIsMinting(true);
-    const MY_WALLET_ADDRESS = "0x89725B54965c706100A2B24f78AEc268ADC25D3B"; 
-
-    try {
-      if (sdk.actions?.sendTransaction) {
-        await sdk.actions.sendTransaction({
-          transaction: {
-            to: MY_WALLET_ADDRESS,
-            value: "370000000000000", // 0.00037 ETH
-            chainId: 8453 // Base
-          }
-        });
-        alert("İşlem gönderildi!");
-        setHasMinted(true);
-      } else {
-        // Mock ortamı
-        console.log("Mock Transaction Sent");
-        alert("Simülasyon: İşlem Başarılı!");
-        setHasMinted(true);
-      }
-    } catch (error) {
-      console.error(error);
-      alert("İşlem iptal edildi.");
-    } finally {
-      setIsMinting(false);
-    }
-  };
-
   const handleShare = () => {
     const myAppUrl = "https://ff-game.vercel.app";
     const text = `Played ff on Farcaster! Reached Level ${level}. Score: ${score}`;
@@ -391,10 +359,6 @@ export default function App() {
             <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
             <h2 className="text-3xl font-bold mb-2 text-center">LEVEL {level} COMPLETE!</h2>
             <div className="flex flex-col gap-3 w-72 mt-8">
-                <button onClick={handleMintNFT} disabled={isMinting || hasMinted} className={`w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 border ${hasMinted ? 'bg-slate-800 text-slate-500' : 'bg-purple-600 text-white hover:bg-purple-500'}`}>
-                    {isMinting ? <Loader2 className="animate-spin" /> : <Gem />}
-                    {hasMinted ? "Minted ✅" : "Mint Level NFT ($1)"}
-                </button>
                 <button onClick={nextLevel} className="bg-white text-green-900 w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-100">
                     <Play fill="currentColor" /> NEXT LEVEL
                 </button>
