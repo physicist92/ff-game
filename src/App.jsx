@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+// GERÇEK SDK İMPORTU (KESİN GEREKLİ)
+import sdk from '@farcaster/frame-sdk';
 import { 
   Play, 
   RotateCcw, 
@@ -9,25 +11,6 @@ import {
   X,
   Wallet
 } from 'lucide-react';
-
-// --- DİKKAT: CANLIYA (VERCEL) YÜKLERKEN BURAYI DÜZENLEYİN ---
-
-// 1. ADIM: Aşağıdaki satırın başındaki '//' işaretlerini KALDIRIN (Aktif Edin):
-// import sdk from '@farcaster/frame-sdk';
-
-// 2. ADIM: Aşağıdaki 'const sdk = ...' bloğunu tamamen SİLİN veya YORUM SATIRI YAPIN.
-// --- MOCK SDK (Sadece Önizleme İçin) ---
-const sdk = {
-  actions: {
-    ready: () => console.log("SDK Ready (Mock)"),
-    openUrl: (url) => window.open(url, '_blank'),
-    sendTransaction: async () => {
-        console.log("Mock Transaction Sent");
-        return { hash: "0xMockHash..." };
-    }
-  }
-};
-// ---------------------------------------
 
 export default function App() {
   // --- STATE ---
@@ -61,6 +44,23 @@ export default function App() {
     { name: '@horsefacts', score: 80, level: 6 },
     { name: '@linda', score: 45, level: 3 },
   ];
+
+  // --- KRİTİK BÖLÜM: SDK BAŞLATMA ---
+  // Bu useEffect, uygulama açılır açılmaz çalışır ve Farcaster'a 
+  // "Yükleme bitti, beni göster" sinyalini gönderir.
+  useEffect(() => {
+    const init = async () => {
+      try {
+        // Bu satır "Ready not called" hatasını çözer
+        await sdk.actions.ready();
+        console.log("Farcaster SDK Ready Signal Sent");
+      } catch (err) {
+        // Tarayıcıda test ediyorsanız hata verebilir, normaldir.
+        console.error("SDK Error:", err);
+      }
+    };
+    init();
+  }, []);
 
   // --- ZORLUK SEVİYELERİ ---
   const getLevelConfig = (lvl) => {
@@ -121,20 +121,6 @@ export default function App() {
 
     return config;
   };
-
-  // SDK INITIALIZATION
-  useEffect(() => {
-    const init = async () => {
-      try { 
-        // Farcaster'a hazır sinyali gönder
-        await sdk.actions.ready(); 
-        console.log("Farcaster SDK Ready Signal Sent");
-      } catch(e) {
-        console.error("SDK Error:", e);
-      }
-    };
-    init();
-  }, []);
 
   // --- OYUN ÇİZİM DÖNGÜSÜ ---
   const animate = useCallback(() => {
@@ -302,9 +288,9 @@ export default function App() {
     const text = `Played ff on Farcaster! Reached Level ${level}. Score: ${score}`;
     const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${myAppUrl}`;
     
-    if (sdk.actions?.openUrl) {
+    try {
         sdk.actions.openUrl(url);
-    } else {
+    } catch (e) {
         window.open(url, '_blank');
     }
   };
