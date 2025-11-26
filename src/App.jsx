@@ -4,25 +4,32 @@ import {
   RotateCcw, 
   Trophy, 
   Share2, 
+  Gem, 
+  Loader2,
   X,
-  Loader2
+  Wallet
 } from 'lucide-react';
 
-// --- CANLI ORTAM (VERCEL/GITHUB) İÇİN YAPILACAKLAR ---
-// 1. Aşağıdaki 'import sdk' satırının başındaki '//' işaretini kaldırın:
+// --- ÖNEMLİ: CANLIYA (VERCEL/GITHUB) YÜKLERKEN BURAYI DÜZENLEYİN ---
+
+// 1. ADIM: Aşağıdaki satırın başındaki '//' işaretlerini KALDIRIN (Aktif Edin):
 // import sdk from '@farcaster/frame-sdk';
 
-// 2. Aşağıdaki 'const sdk = ...' bloğunu tamamen SİLİN veya YORUM SATIRI YAPIN.
-
-// --- MOCK SDK (ÖNİZLEME İÇİN) ---
+// 2. ADIM: Aşağıdaki 'const sdk = ...' bloğunu tamamen SİLİN veya YORUM SATIRI YAPIN.
+// --- MOCK SDK (Sadece Önizleme İçin) ---
 const sdk = {
   context: Promise.resolve({ user: { fid: 19267, username: 'sedat' } }),
   actions: {
     ready: () => console.log("SDK Ready (Mock)"),
-    openUrl: (url) => window.open(url, '_blank')
+    openUrl: (url) => window.open(url, '_blank'),
+    sendTransaction: async () => {
+      console.log("Transaction sent (Mock)");
+      await new Promise(r => setTimeout(r, 2000));
+      return { hash: "0x123456..." };
+    }
   }
 };
-// ----------------------------------
+// ---------------------------------------
 
 export default function App() {
   // --- STATE ---
@@ -31,6 +38,8 @@ export default function App() {
   const [pinsLeft, setPinsLeft] = useState(6);
   const [score, setScore] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [isMinting, setIsMinting] = useState(false);
+  const [hasMinted, setHasMinted] = useState(false);
 
   const canvasRef = useRef(null);
   const requestRef = useRef();
@@ -119,9 +128,9 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       try { 
-        // Mock SDK için await gerekmez ama gerçek SDK asenkrondur
+        // Farcaster'a hazır sinyali gönder
         await sdk.actions.ready(); 
-        console.log("Farcaster SDK Ready");
+        console.log("Farcaster SDK Ready Signal Sent");
       } catch(e) {
         console.error("SDK Error:", e);
       }
@@ -265,7 +274,6 @@ export default function App() {
   // --- OYUN YÖNETİMİ ---
   const initLevel = (lvl) => {
     const config = getLevelConfig(lvl);
-    
     game.current.rotation = 0;
     game.current.frameCount = 0;
     game.current.speed = config.speed;
@@ -291,8 +299,37 @@ export default function App() {
     initLevel(level);
   };
 
+  // MINT (ETH GÖNDERME)
+  const handleMintNFT = async () => {
+    setIsMinting(true);
+    const MY_WALLET_ADDRESS = "0x89725B54965c706100A2B24f78AEc268ADC25D3B"; 
+
+    try {
+      if (sdk.actions?.sendTransaction) {
+        await sdk.actions.sendTransaction({
+          transaction: {
+            to: MY_WALLET_ADDRESS,
+            value: "370000000000000", // 0.00037 ETH
+            chainId: 8453 // Base
+          }
+        });
+        alert("İşlem gönderildi!");
+        setHasMinted(true);
+      } else {
+        // Mock ortamı
+        console.log("Mock Transaction Sent");
+        alert("Simülasyon: İşlem Başarılı!");
+        setHasMinted(true);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("İşlem iptal edildi.");
+    } finally {
+      setIsMinting(false);
+    }
+  };
+
   const handleShare = () => {
-    // Vercel linkini buraya yaz
     const myAppUrl = "https://ff-game.vercel.app";
     const text = `Played ff on Farcaster! Reached Level ${level}. Score: ${score}`;
     const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${myAppUrl}`;
@@ -307,6 +344,7 @@ export default function App() {
   return (
     <div className="w-full h-screen flex flex-col items-center bg-black text-white font-mono overflow-hidden select-none relative">
       
+      {/* Header */}
       <div className="w-full flex justify-between p-6 z-10">
         <div className="text-xl font-bold text-slate-500">LVL {level}</div>
         <button onClick={() => setShowLeaderboard(true)} className="flex items-center gap-2 bg-slate-900/80 px-3 py-1 rounded-full border border-slate-800 hover:bg-slate-800">
@@ -316,11 +354,13 @@ export default function App() {
         <div className="text-xl font-bold">{score}</div>
       </div>
 
+      {/* Game Canvas */}
       <div className="flex-1 w-full flex items-center justify-center cursor-pointer active:scale-[0.98] transition-transform" onPointerDown={handleShoot}>
         <canvas ref={canvasRef} width={400} height={600} className="max-w-full h-full object-contain" />
       </div>
 
-      {/* MODALS */}
+      {/* --- OYUN MODALLARI --- */}
+
       {gameState === 'start' && (
         <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-20 p-4 text-center">
             <h1 className="text-8xl font-black mb-2 tracking-tighter">ff</h1>
@@ -351,11 +391,15 @@ export default function App() {
             <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
             <h2 className="text-3xl font-bold mb-2 text-center">LEVEL {level} COMPLETE!</h2>
             <div className="flex flex-col gap-3 w-72 mt-8">
+                <button onClick={handleMintNFT} disabled={isMinting || hasMinted} className={`w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 border ${hasMinted ? 'bg-slate-800 text-slate-500' : 'bg-purple-600 text-white hover:bg-purple-500'}`}>
+                    {isMinting ? <Loader2 className="animate-spin" /> : <Gem />}
+                    {hasMinted ? "Minted ✅" : "Mint Level NFT ($1)"}
+                </button>
                 <button onClick={nextLevel} className="bg-white text-green-900 w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-100">
                     <Play fill="currentColor" /> NEXT LEVEL
                 </button>
-                <button onClick={handleShare} className="text-green-200 text-sm underline hover:text-white mt-2 flex items-center justify-center gap-1">
-                    <Share2 size={16} /> Share this achievement
+                <button onClick={handleShare} className="text-green-200 text-sm underline hover:text-white mt-2">
+                    Share this achievement
                 </button>
             </div>
         </div>
