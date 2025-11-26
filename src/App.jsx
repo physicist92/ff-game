@@ -4,55 +4,49 @@ import {
   RotateCcw, 
   Trophy, 
   Share2, 
-  Gem, 
-  Loader2,
   X,
-  Wallet
+  Loader2
 } from 'lucide-react';
 
-// --- CANLIYA (VERCEL/GITHUB) YÜKLERKEN YAPILACAKLAR ---
-// 1. Aşağıdaki 'import sdk ...' satırının başındaki '//' işaretlerini KALDIRIN:
+// --- CANLI ORTAM (VERCEL/GITHUB) İÇİN YAPILACAKLAR ---
+// 1. Aşağıdaki 'import sdk' satırının başındaki '//' işaretini kaldırın:
 // import sdk from '@farcaster/frame-sdk';
 
 // 2. Aşağıdaki 'const sdk = ...' bloğunu tamamen SİLİN veya YORUM SATIRI YAPIN.
 
-// --- MOCK KÜTÜPHANELER (ÖNİZLEME İÇİN GEÇİCİ KOD) ---
+// --- MOCK SDK (ÖNİZLEME İÇİN) ---
 const sdk = {
   context: Promise.resolve({ user: { fid: 19267, username: 'sedat' } }),
   actions: {
     ready: () => console.log("SDK Ready (Mock)"),
-    openUrl: (url) => window.open(url, '_blank'),
-    sendTransaction: async () => {
-      console.log("Transaction sent (Mock)");
-      await new Promise(r => setTimeout(r, 2000));
-      return { hash: "0x123456..." };
-    }
+    openUrl: (url) => window.open(url, '_blank')
   }
 };
-// --- MOCK BİTİŞ ---
+// ----------------------------------
 
 export default function App() {
+  // --- STATE ---
   const [gameState, setGameState] = useState('start'); 
   const [level, setLevel] = useState(1);
   const [pinsLeft, setPinsLeft] = useState(6);
   const [score, setScore] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [isMinting, setIsMinting] = useState(false);
-  const [hasMinted, setHasMinted] = useState(false);
 
   const canvasRef = useRef(null);
   const requestRef = useRef();
   
-  // --- BURAYI GÜNCELLE ---
-  const CONTRACT_ADDRESS = "0x89725B54965c706100A2B24f78AEc268ADC25D3B"; 
-  
-  // Oyun Fiziği
+  // OYUN MOTORU VERİLERİ
   const game = useRef({
-    rotation: 0, baseSpeed: 0.02, speed: 0.02,
-    pins: [], redZones: [], frameCount: 0, mode: 'normal'
+    rotation: 0,      
+    baseSpeed: 0.02,  
+    speed: 0.02,      
+    pins: [],         
+    redZones: [],     
+    frameCount: 0,
+    mode: 'normal'    // 'normal', 'chaos', 'reverse'
   });
 
-  // Mock Data
+  // Sahte Liderlik Tablosu
   const mockLeaderboard = [
     { name: '@dwr', score: 450, level: 22 },
     { name: '@vitalik', score: 320, level: 15 },
@@ -61,30 +55,86 @@ export default function App() {
     { name: '@linda', score: 45, level: 3 },
   ];
 
+  // --- ZORLUK SEVİYELERİ ---
   const getLevelConfig = (lvl) => {
-    let config = { speed: 0.02, count: 6, initialPins: [], redZones: [], mode: 'normal' };
-    if (lvl <= 10) { config.speed = 0.02 + (lvl * 0.0015); config.count = 4 + Math.floor(lvl / 2); }
-    else if (lvl <= 20) { config.speed = -1 * (0.025 + ((lvl - 10) * 0.002)); config.count = 8 + Math.floor((lvl - 10) / 2); config.mode = 'reverse'; }
-    else if (lvl <= 30) { config.speed = 0.035 + ((lvl - 20) * 0.002); config.count = 10 + Math.floor((lvl - 20) / 2); config.redZones = [{ start: Math.random() * Math.PI * 2, end: (Math.random() * Math.PI * 2) + (Math.PI / 4) }]; }
-    else if (lvl <= 40) { config.speed = 0.04; config.count = 12; config.initialPins = Array.from({length: 3}, () => Math.random() * Math.PI * 2); config.mode = Math.random() > 0.5 ? 'normal' : 'reverse'; }
-    else { config.speed = 0.05; config.count = 15; config.mode = 'chaos'; config.redZones = [{ start: 0, end: 0.6 }, { start: 3, end: 3.6 }]; }
+    let config = {
+      speed: 0.02,
+      count: 6,
+      initialPins: [],
+      redZones: [],
+      mode: 'normal'
+    };
+
+    if (lvl <= 10) {
+      // 1. KOLAY (1-10)
+      config.speed = 0.02 + (lvl * 0.0015); 
+      config.count = 4 + Math.floor(lvl / 2);
+      config.mode = 'normal';
+    }
+    else if (lvl <= 20) {
+      // 2. KOLAY-ORTA (11-20): Ters Yön
+      config.speed = -1 * (0.025 + ((lvl - 10) * 0.002)); 
+      config.count = 8 + Math.floor((lvl - 10) / 2);
+      config.mode = 'reverse';
+    }
+    else if (lvl <= 30) {
+      // 3. ORTA (21-30): Kırmızı Alanlar
+      config.speed = 0.035 + ((lvl - 20) * 0.002);
+      config.count = 10 + Math.floor((lvl - 20) / 2);
+      const start = Math.random() * Math.PI * 2;
+      config.redZones = [{ start: start, end: start + (Math.PI / 4) }]; 
+      config.mode = 'normal';
+    }
+    else if (lvl <= 40) {
+      // 4. ORTA-ZOR (31-40): Hazır İğneler
+      config.speed = 0.04 + ((lvl - 30) * 0.002);
+      config.count = 12;
+      config.initialPins = Array.from({length: 3}, () => Math.random() * Math.PI * 2);
+      config.mode = Math.random() > 0.5 ? 'normal' : 'reverse';
+      const start = Math.random() * Math.PI * 2;
+      config.redZones = [{ start: start, end: start + (Math.PI / 6) }]; 
+    }
+    else if (lvl <= 50) {
+      // 5. ZOR (41-50): Kaos
+      config.speed = 0.05;
+      config.count = 15;
+      config.mode = 'chaos';
+      config.redZones = [
+        { start: 0, end: 0.6 }, 
+        { start: 3, end: 3.6 }
+      ];
+    }
+    else {
+      // 6. ÇOK ZOR (50+)
+      config.speed = 0.06 + ((lvl - 50) * 0.005);
+      config.count = 15 + (lvl - 50);
+      config.initialPins = Array.from({length: 6}, () => Math.random() * Math.PI * 2);
+      config.mode = 'chaos';
+    }
+
     return config;
   };
 
+  // SDK INITIALIZATION
   useEffect(() => {
     const init = async () => {
       try { 
+        // Mock SDK için await gerekmez ama gerçek SDK asenkrondur
         await sdk.actions.ready(); 
         console.log("Farcaster SDK Ready");
-      } catch(e) { console.error("SDK Error:", e); }
+      } catch(e) {
+        console.error("SDK Error:", e);
+      }
     };
     init();
   }, []);
 
+  // --- OYUN ÇİZİM DÖNGÜSÜ ---
   const animate = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    
     const width = canvas.width;
     const height = canvas.height;
     const centerX = width / 2;
@@ -93,41 +143,77 @@ export default function App() {
 
     ctx.clearRect(0, 0, width, height);
 
+    // 1. HIZ VE DÖNÜŞ
     if (gameState === 'playing') {
       game.current.frameCount++;
-      if (game.current.mode === 'chaos') game.current.speed = Math.sin(game.current.frameCount * 0.05) * 0.08;
+      if (game.current.mode === 'chaos') {
+        game.current.speed = Math.sin(game.current.frameCount * 0.05) * 0.08;
+      }
       game.current.rotation += game.current.speed;
     }
 
+    // 2. ÇİZİM
     ctx.save();
     ctx.translate(centerX, centerY);
     ctx.rotate(game.current.rotation);
 
+    // Kırmızı Alanlar
     game.current.redZones.forEach(zone => {
-        ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, radius, zone.start, zone.end); ctx.lineTo(0, 0);
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.6)'; ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius, zone.start, zone.end);
+        ctx.lineTo(0, 0); 
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
+        ctx.fill();
     });
 
-    ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.fillStyle = gameState === 'lost' ? '#ef4444' : (gameState === 'won' ? '#22c55e' : 'white'); ctx.fill();
+    // Ana Daire
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fillStyle = gameState === 'lost' ? '#ef4444' : (gameState === 'won' ? '#22c55e' : 'white');
+    ctx.fill();
 
+    // İğneler
     game.current.pins.forEach(angle => {
-      ctx.save(); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(radius, 0); ctx.lineTo(radius + 60, 0);
-      ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.beginPath(); ctx.arc(radius + 60, 0, 6, 0, Math.PI * 2); ctx.fillStyle = 'white'; ctx.fill();
+      ctx.save();
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.moveTo(radius, 0);
+      ctx.lineTo(radius + 60, 0);
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(radius + 60, 0, 6, 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
       ctx.restore();
     });
+
     ctx.restore(); 
 
-    ctx.fillStyle = 'black'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // Level Yazısı
+    ctx.fillStyle = 'black';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(level, centerX, centerY);
 
+    // 3. ATIŞ İĞNESİ
+    const shootY = 500;
     if (gameState === 'playing') {
-        const shootY = 500;
-        ctx.beginPath(); ctx.moveTo(centerX, shootY); ctx.lineTo(centerX, shootY - 60);
-        ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.beginPath(); ctx.arc(centerX, shootY, 6, 0, Math.PI * 2); ctx.fillStyle = 'white'; ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(centerX, shootY);
+        ctx.lineTo(centerX, shootY - 60);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(centerX, shootY, 6, 0, Math.PI * 2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
     }
+
     requestRef.current = requestAnimationFrame(animate);
   }, [gameState, level]);
 
@@ -136,87 +222,91 @@ export default function App() {
     return () => cancelAnimationFrame(requestRef.current);
   }, [animate]);
 
+  // --- ATIŞ MANTIĞI ---
   const handleShoot = () => {
     if (gameState !== 'playing') return;
-    let pinAngle = (Math.PI / 2) - game.current.rotation;
-    pinAngle = (pinAngle % (Math.PI * 2)); if (pinAngle < 0) pinAngle += Math.PI * 2;
 
+    let pinAngle = (Math.PI / 2) - game.current.rotation;
+    pinAngle = (pinAngle % (Math.PI * 2));
+    if (pinAngle < 0) pinAngle += Math.PI * 2;
+
+    // Çarpışma Kontrolü
     const pinCollision = game.current.pins.some(angle => {
-        let diff = Math.abs(angle - pinAngle); if (diff > Math.PI) diff = 2 * Math.PI - diff; return diff < 0.25;
+        let diff = Math.abs(angle - pinAngle);
+        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+        return diff < 0.25; 
     });
+
+    // Kırmızı Alan Kontrolü
     const redZoneCollision = game.current.redZones.some(zone => {
-        let normAngle = pinAngle % (Math.PI * 2); return (normAngle >= zone.start && normAngle <= zone.end);
+        let normAngle = pinAngle % (Math.PI * 2);
+        if (zone.start < zone.end) {
+             return normAngle >= zone.start && normAngle <= zone.end;
+        } else {
+             return normAngle >= zone.start || normAngle <= zone.end;
+        }
     });
 
     if (pinCollision || redZoneCollision) {
-        setGameState('lost'); if (navigator.vibrate) navigator.vibrate(200);
+        setGameState('lost');
+        if (navigator.vibrate) navigator.vibrate(200);
     } else {
-        game.current.pins.push(pinAngle); setPinsLeft(p => p - 1); setScore(s => s + 10);
-        if (pinsLeft - 1 <= 0) { setGameState('won'); setHasMinted(false); }
+        game.current.pins.push(pinAngle);
+        const newPinsLeft = pinsLeft - 1;
+        setPinsLeft(newPinsLeft);
+        setScore(s => s + 10);
+
+        if (newPinsLeft <= 0) {
+            setGameState('won');
+        }
     }
   };
 
+  // --- OYUN YÖNETİMİ ---
   const initLevel = (lvl) => {
     const config = getLevelConfig(lvl);
-    game.current.rotation = 0; game.current.frameCount = 0; game.current.speed = config.speed;
-    game.current.baseSpeed = config.speed; game.current.mode = config.mode;
-    game.current.pins = [...config.initialPins]; game.current.redZones = config.redZones || [];
-    setPinsLeft(config.count); setLevel(lvl); setGameState('playing');
+    
+    game.current.rotation = 0;
+    game.current.frameCount = 0;
+    game.current.speed = config.speed;
+    game.current.baseSpeed = config.speed;
+    game.current.mode = config.mode;
+    game.current.pins = [...config.initialPins]; 
+    game.current.redZones = config.redZones || [];
+    setPinsLeft(config.count);
+    setLevel(lvl);
+    setGameState('playing');
   };
 
-  const startGame = () => { setScore(0); initLevel(1); };
-  const nextLevel = () => { initLevel(level + 1); };
-  const retryLevel = () => { initLevel(level); };
+  const startGame = () => {
+    setScore(0);
+    initLevel(1);
+  };
 
-  // MINT İŞLEMİ (BURAYA DİKKAT)
-  // Önizleme modunda "viem" paketi olmadığı için basit bir simülasyon yapıyoruz.
-  // Canlıya alırken "import { parseEther } from 'viem';" ekleyip bu fonksiyonu güncellemelisiniz.
-  const handleMintNFT = async () => {
-    setIsMinting(true);
-    
-    try {
-      if (!sdk.actions?.sendTransaction) {
-        alert("Cüzdan bulunamadı. Lütfen mobilde deneyin.");
-        setIsMinting(false);
-        return;
-      }
+  const nextLevel = () => {
+    initLevel(level + 1);
+  };
 
-      // Gerçek ortamda viem ile encodeFunctionData kullanacağız.
-      // Burada mock transaction gönderiyoruz.
-      const result = await sdk.actions.sendTransaction({
-        transaction: {
-          to: CONTRACT_ADDRESS, 
-          value: "370000000000000", // 0.00037 ETH (Wei)
-          chainId: 8453 // Base Mainnet
-        }
-      });
-
-      console.log("Tx Hash:", result.hash);
-      alert("Tebrikler! NFT Mintlendi (Simülasyon).");
-      setHasMinted(true);
-
-    } catch (error) {
-      console.error("Mint Hatası:", error);
-      alert("İşlem başarısız oldu veya iptal edildi.");
-    } finally {
-      setIsMinting(false);
-    }
+  const retryLevel = () => {
+    initLevel(level);
   };
 
   const handleShare = () => {
+    // Vercel linkini buraya yaz
     const myAppUrl = "https://ff-game.vercel.app";
     const text = `Played ff on Farcaster! Reached Level ${level}. Score: ${score}`;
     const url = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${myAppUrl}`;
     
     if (sdk.actions?.openUrl) {
-      sdk.actions.openUrl(url);
+        sdk.actions.openUrl(url);
     } else {
-      window.open(url, '_blank');
+        window.open(url, '_blank');
     }
   };
 
   return (
     <div className="w-full h-screen flex flex-col items-center bg-black text-white font-mono overflow-hidden select-none relative">
+      
       <div className="w-full flex justify-between p-6 z-10">
         <div className="text-xl font-bold text-slate-500">LVL {level}</div>
         <button onClick={() => setShowLeaderboard(true)} className="flex items-center gap-2 bg-slate-900/80 px-3 py-1 rounded-full border border-slate-800 hover:bg-slate-800">
@@ -230,7 +320,7 @@ export default function App() {
         <canvas ref={canvasRef} width={400} height={600} className="max-w-full h-full object-contain" />
       </div>
 
-      {/* MODALLAR */}
+      {/* MODALS */}
       {gameState === 'start' && (
         <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-20 p-4 text-center">
             <h1 className="text-8xl font-black mb-2 tracking-tighter">ff</h1>
@@ -261,15 +351,11 @@ export default function App() {
             <Trophy size={80} className="text-yellow-400 mb-4 animate-bounce" />
             <h2 className="text-3xl font-bold mb-2 text-center">LEVEL {level} COMPLETE!</h2>
             <div className="flex flex-col gap-3 w-72 mt-8">
-                <button onClick={handleMintNFT} disabled={isMinting || hasMinted} className={`w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 border ${hasMinted ? 'bg-slate-800 text-slate-500' : 'bg-purple-600 text-white hover:bg-purple-500'}`}>
-                    {isMinting ? <Loader2 className="animate-spin" /> : <Gem />}
-                    {hasMinted ? "Minted ✅" : "Mint Level NFT ($1)"}
-                </button>
                 <button onClick={nextLevel} className="bg-white text-green-900 w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-100">
                     <Play fill="currentColor" /> NEXT LEVEL
                 </button>
-                <button onClick={handleShare} className="text-green-200 text-sm underline hover:text-white mt-2">
-                    Cast this achievement
+                <button onClick={handleShare} className="text-green-200 text-sm underline hover:text-white mt-2 flex items-center justify-center gap-1">
+                    <Share2 size={16} /> Share this achievement
                 </button>
             </div>
         </div>
